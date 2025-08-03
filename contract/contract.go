@@ -4,6 +4,8 @@ import (
 	"math/rand"
 )
 
+/* This file contains the base contract implementation that overrides the basic 'transfer' functionality */
+
 // PluginConfig: the configuration of the contract
 var ContractConfig = &PluginConfig{
 	Name:                  "send",
@@ -88,20 +90,13 @@ func (c *Contract) EndBlock(_ *PluginEndRequest) *PluginEndResponse {
 
 // CheckMessageSend() statelessly validates a 'send' message
 func (c *Contract) CheckMessageSend(msg *MessageSend) *PluginCheckResponse {
-	// define helper
-	checkAddr := func(b []byte) (err *PluginError) {
-		if len(b) != 20 {
-			err = ErrInvalidAddress()
-		}
-		return
-	}
 	// check sender address
-	if err := checkAddr(msg.FromAddress); err != nil {
-		return &PluginCheckResponse{Error: err}
+	if len(msg.FromAddress) != 20 {
+		return &PluginCheckResponse{Error: ErrInvalidAddress()}
 	}
 	// check recipient address
-	if err := checkAddr(msg.ToAddress); err != nil {
-		return &PluginCheckResponse{Error: err}
+	if len(msg.FromAddress) != 20 {
+		return &PluginCheckResponse{Error: ErrInvalidAddress()}
 	}
 	// check amount
 	if msg.Amount == 0 {

@@ -5,6 +5,8 @@ import (
 	"reflect"
 )
 
+/* This file contains contract level PluginErrors */
+
 const DefaultModule = "plugin"
 
 // NewError() creates a plugin error

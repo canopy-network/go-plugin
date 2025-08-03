@@ -1,0 +1,13 @@
+syntax = "proto3";
+package proto;
+option go_package = "github.com/canopy-network/go-plugin/contract";
+
+// An account is a structure that holds funds and can send or receive transactions using a crypto key pair
+// Each account has a unique address and a balance, think a bank account - but managed by the blockchain
+// instead of a bank
+message Account {
+  // address: the short version of a public key
+  bytes address = 1;
+  // amount: the balance of funds the account has
+  uint64 amount = 2;
+}

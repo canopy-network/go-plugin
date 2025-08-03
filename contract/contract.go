@@ -19,17 +19,17 @@ type Contract struct {
 }
 
 // Genesis() implements logic to import a json file to create the state at height 0 and export the state at any height
-func (c *Contract) Genesis(_ *PluginGenesisRequest) (response *PluginGenesisResponse) {
+func (c *Contract) Genesis(_ *PluginGenesisRequest) *PluginGenesisResponse {
 	return &PluginGenesisResponse{}
 }
 
 // BeginBlock() is code that is executed at the start of `applying` the block
-func (c *Contract) BeginBlock(_ *PluginBeginRequest) (response *PluginBeginResponse) {
+func (c *Contract) BeginBlock(_ *PluginBeginRequest) *PluginBeginResponse {
 	return &PluginBeginResponse{}
 }
 
 // CheckTx() is code that is executed to statelessly validate a transaction
-func (c *Contract) CheckTx(request *PluginCheckRequest) (response *PluginCheckResponse) {
+func (c *Contract) CheckTx(request *PluginCheckRequest) *PluginCheckResponse {
 	// validate fee
 	resp, err := c.plugin.StateRead(c, &PluginStateReadRequest{
 		Keys: []*PluginKeyRead{
@@ -66,7 +66,7 @@ func (c *Contract) CheckTx(request *PluginCheckRequest) (response *PluginCheckRe
 }
 
 // DeliverTx() is code that is executed to apply a transaction
-func (c *Contract) DeliverTx(request *PluginDeliverRequest) (response *PluginDeliverResponse) {
+func (c *Contract) DeliverTx(request *PluginDeliverRequest) *PluginDeliverResponse {
 	// get the message
 	msg, err := FromAny(request.Tx.Msg)
 	if err != nil {
@@ -82,12 +82,12 @@ func (c *Contract) DeliverTx(request *PluginDeliverRequest) (response *PluginDel
 }
 
 // EndBlock() is code that is executed at the end of 'applying' a block
-func (c *Contract) EndBlock(_ *PluginEndRequest) (response *PluginEndResponse) {
+func (c *Contract) EndBlock(_ *PluginEndRequest) *PluginEndResponse {
 	return &PluginEndResponse{}
 }
 
 // CheckMessageSend() statelessly validates a 'send' message
-func (c *Contract) CheckMessageSend(msg *MessageSend) (response *PluginCheckResponse) {
+func (c *Contract) CheckMessageSend(msg *MessageSend) *PluginCheckResponse {
 	// define helper
 	checkAddr := func(b []byte) (err *PluginError) {
 		if len(b) != 20 {

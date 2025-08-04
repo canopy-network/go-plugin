@@ -78,6 +78,63 @@ func (x *Account) GetAmount() uint64 {
 	return 0
 }
 
+// A pool is like an account without an owner, holding funds that are managed directly by the blockchain protocol
+// It's very similar to an account but instead of an address it has a unique ID and operates based on predefined
+// blockchain rules rather than individual control
+type Pool struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// id: the unique identifier of the pool
+	Id uint64 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	// amount: the balance of funds the pool has
+	Amount        uint64 `protobuf:"varint,2,opt,name=amount,proto3" json:"amount,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Pool) Reset() {
+	*x = Pool{}
+	mi := &file_account_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Pool) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Pool) ProtoMessage() {}
+
+func (x *Pool) ProtoReflect() protoreflect.Message {
+	mi := &file_account_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Pool.ProtoReflect.Descriptor instead.
+func (*Pool) Descriptor() ([]byte, []int) {
+	return file_account_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *Pool) GetId() uint64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *Pool) GetAmount() uint64 {
+	if x != nil {
+		return x.Amount
+	}
+	return 0
+}
+
 var File_account_proto protoreflect.FileDescriptor
 
 const file_account_proto_rawDesc = "" +
@@ -85,6 +142,9 @@ const file_account_proto_rawDesc = "" +
 	"\raccount.proto\x12\x05types\";\n" +
 	"\aAccount\x12\x18\n" +
 	"\aaddress\x18\x01 \x01(\fR\aaddress\x12\x16\n" +
+	"\x06amount\x18\x02 \x01(\x04R\x06amount\".\n" +
+	"\x04Pool\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x04R\x02id\x12\x16\n" +
 	"\x06amount\x18\x02 \x01(\x04R\x06amountB.Z,github.com/canopy-network/go-plugin/contractb\x06proto3"
 
 var (
@@ -99,9 +159,10 @@ func file_account_proto_rawDescGZIP() []byte {
 	return file_account_proto_rawDescData
 }
 
-var file_account_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_account_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_account_proto_goTypes = []any{
 	(*Account)(nil), // 0: types.Account
+	(*Pool)(nil),    // 1: types.Pool
 }
 var file_account_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type
@@ -122,7 +183,7 @@ func file_account_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_account_proto_rawDesc), len(file_account_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   1,
+			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

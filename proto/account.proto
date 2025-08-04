@@ -12,3 +12,13 @@ message Account {
   uint64 amount = 2;
   // NOTE: CAN EXTEND FUNCTIONALITY BY ADDING ADDITIONAL FIELDS
 }
+
+// A pool is like an account without an owner, holding funds that are managed directly by the blockchain protocol
+// It's very similar to an account but instead of an address it has a unique ID and operates based on predefined
+// blockchain rules rather than individual control
+message Pool {
+  // id: the unique identifier of the pool
+  uint64 id = 1;
+  // amount: the balance of funds the pool has
+  uint64 amount = 2;
+}

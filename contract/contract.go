@@ -1,6 +1,7 @@
 package contract
 
 import (
+	"encoding/binary"
 	"math/rand"
 )
 
@@ -16,6 +17,7 @@ var ContractConfig = &PluginConfig{
 
 // Contract() defines the smart contract that implements the extended logic of the nested chain
 type Contract struct {
+	Config    Config
 	FSMConfig *PluginFSMConfig // fsm configuration
 	plugin    *Plugin          // plugin connection
 	fsmId     uint64           // the id of the requesting fsm
@@ -23,7 +25,7 @@ type Contract struct {
 
 // Genesis() implements logic to import a json file to create the state at height 0 and export the state at any height
 func (c *Contract) Genesis(_ *PluginGenesisRequest) *PluginGenesisResponse {
-	return &PluginGenesisResponse{}
+	return &PluginGenesisResponse{} // TODO map out original token holders
 }
 
 // BeginBlock() is code that is executed at the start of `applying` the block
@@ -78,7 +80,7 @@ func (c *Contract) DeliverTx(request *PluginDeliverRequest) *PluginDeliverRespon
 	// handle the message
 	switch x := msg.(type) {
 	case *MessageSend:
-		return c.DeliverMessageSend(x)
+		return c.DeliverMessageSend(x, request.Tx.Fee)
 	default:
 		return &PluginDeliverResponse{Error: ErrInvalidMessageCast()}
 	}
@@ -108,18 +110,19 @@ func (c *Contract) CheckMessageSend(msg *MessageSend) *PluginCheckResponse {
 }
 
 // DeliverMessageSend() handles a 'send' message
-func (c *Contract) DeliverMessageSend(msg *MessageSend) *PluginDeliverResponse {
+func (c *Contract) DeliverMessageSend(msg *MessageSend, fee uint64) *PluginDeliverResponse {
 	var (
-		fromKey, toKey         []byte
-		fromBytes, toBytes     []byte
-		fromQueryId, toQueryId = rand.Uint64(), rand.Uint64()
-		from, to               = new(Account), new(Account)
+		fromKey, toKey, feePoolKey         []byte
+		fromBytes, toBytes, feePoolBytes   []byte
+		fromQueryId, toQueryId, feeQueryId = rand.Uint64(), rand.Uint64(), rand.Uint64()
+		from, to, feePool                  = new(Account), new(Account), new(Pool)
 	)
 	// calculate the from key and to key
-	fromKey, toKey = KeyForAccount(msg.FromAddress), KeyForAccount(msg.ToAddress)
+	fromKey, toKey, feePoolKey = KeyForAccount(msg.FromAddress), KeyForAccount(msg.ToAddress), KeyForFeePool(c.Config.ChainId
 	// get the from and to account
 	response, err := c.plugin.StateRead(c, &PluginStateReadRequest{
 		Keys: []*PluginKeyRead{
+			{QueryId: feeQueryId, Key: feePoolKey},
 			{QueryId: fromQueryId, Key: fromKey},
 			{QueryId: toQueryId, Key: toKey},
 		}})
@@ -133,12 +136,17 @@ func (c *Contract) DeliverMessageSend(msg *MessageSend) *PluginDeliverResponse {
 	}
 	// get the from bytes and to bytes
 	for _, resp := range response.Results {
-		if resp.QueryId == fromQueryId {
+		switch resp.QueryId {
+		case fromQueryId:
 			fromBytes = resp.Entries[0].Value
-		} else {
+		case toQueryId:
 			toBytes = resp.Entries[0].Value
+		case feeQueryId:
+			feePoolBytes = resp.Entries[0].Value
 		}
 	}
+	// add fee to 'amount to deduct'
+	amountToDeduct := msg.Amount + fee
 	// convert the bytes to account structures
 	if err = Unmarshal(fromBytes, from); err != nil {
 		return &PluginDeliverResponse{Error: err}
@@ -146,12 +154,17 @@ func (c *Contract) DeliverMessageSend(msg *MessageSend) *PluginDeliverResponse {
 	if err = Unmarshal(toBytes, to); err != nil {
 		return &PluginDeliverResponse{Error: err}
 	}
+	if err = Unmarshal(feePoolBytes, feePool); err != nil {
+		return &PluginDeliverResponse{Error: err}
+	}
 	// if the account amount is less than the amount to subtract; return insufficient funds
-	if from.Amount < msg.Amount {
+	if from.Amount < amountToDeduct {
 		return &PluginDeliverResponse{Error: ErrInsufficientFunds()}
 	}
 	// subtract from sender
-	from.Amount -= msg.Amount
+	from.Amount -= amountToDeduct
+	// add the fee to the 'fee pool'
+	feePool.Amount += fee
 	// add to recipient
 	to.Amount += msg.Amount
 	// convert the accounts to bytes
@@ -163,17 +176,28 @@ func (c *Contract) DeliverMessageSend(msg *MessageSend) *PluginDeliverResponse {
 	if err != nil {
 		return &PluginDeliverResponse{Error: err}
 	}
+	feePoolBytes, err = Marshal(feePoolBytes)
+	if err != nil {
+		return &PluginDeliverResponse{Error: err}
+	}
 	// execute writes to the database
 	var resp *PluginStateWriteResponse
 	// if the from account is drained - delete the from account
 	if from.Amount == 0 {
 		resp, err = c.plugin.StateWrite(c, &PluginStateWriteRequest{
-			Sets:    []*PluginSetOp{{Key: toKey, Value: toBytes}},
+			Sets: []*PluginSetOp{
+				{Key: feePoolKey, Value: feePoolBytes},
+				{Key: toKey, Value: toBytes},
+			},
 			Deletes: []*PluginDeleteOp{{Key: fromKey}},
 		})
 	} else {
 		resp, err = c.plugin.StateWrite(c, &PluginStateWriteRequest{
-			Sets: []*PluginSetOp{{Key: toKey, Value: toBytes}, {Key: fromKey, Value: fromBytes}},
+			Sets: []*PluginSetOp{
+				{Key: toKey, Value: toBytes},
+				{Key: fromKey, Value: fromBytes},
+				{Key: feePoolKey, Value: feePoolBytes},
+			},
 		})
 	}
 	if err == nil {
@@ -184,6 +208,7 @@ func (c *Contract) DeliverMessageSend(msg *MessageSend) *PluginDeliverResponse {
 
 var (
 	accountPrefix = []byte{1} // store key prefix for accounts
+	poolPrefix    = []byte{2} // store key prefix for pools
 	paramsPrefix  = []byte{7} // store key prefix for governance parameters
 )
 
@@ -195,4 +220,15 @@ func KeyForAccount(addr []byte) []byte {
 // KeyForFeeParams() returns the state database key for governance controlled 'fee parameters'
 func KeyForFeeParams() []byte {
 	return JoinLenPrefix(paramsPrefix, []byte("/f/"))
+}
+
+// KeyForFeeParams() returns the state database key for governance controlled 'fee parameters'
+func KeyForFeePool(chainId uint64) []byte {
+	return JoinLenPrefix(poolPrefix, formatUint64(chainId))
+}
+
+func formatUint64(u uint64) []byte {
+	b := make([]byte, 8)
+	binary.BigEndian.PutUint64(b, u)
+	return b
 }

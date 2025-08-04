@@ -20,11 +20,12 @@ import (
 // Plugin defines the 'VM-less' extension of the Finite State Machine
 type Plugin struct {
 	fsmConfig       *PluginFSMConfig                      // the FSM configuration
-	config          *PluginConfig                         // the plugin configuration
+	pluginConfig    *PluginConfig                         // the plugin configuration
 	conn            net.Conn                              // the underlying unix sock file connection
 	pending         map[uint64]chan isFSMToPlugin_Payload // the outstanding requests from the contract
 	requestContract map[uint64]*Contract                  // maps request IDs to their contract context for concurrent operations
 	l               sync.Mutex                            // thread safety
+	config          Config                                // general app config
 }
 
 // socketPath is the name of the plugin socket exposed by the base SDK
@@ -49,11 +50,12 @@ func StartPlugin(c Config) {
 	}
 	// constructs the new plugin
 	p := &Plugin{
-		config:          ContractConfig,
+		pluginConfig:    ContractConfig,
 		conn:            conn,
 		pending:         map[uint64]chan isFSMToPlugin_Payload{},
 		requestContract: map[uint64]*Contract{},
 		l:               sync.Mutex{},
+		config:          c,
 	}
 	// begin the listening service
 	go p.ListenForInbound()
@@ -70,7 +72,7 @@ func (p *Plugin) Handshake() *PluginError {
 	// log the handshake
 	log.Println("Handshaking with FSM")
 	// send to the plugin sync
-	response, err := p.sendToPluginSync(&Contract{}, &PluginToFSM_Config{Config: p.config})
+	response, err := p.sendToPluginSync(&Contract{}, &PluginToFSM_Config{Config: p.pluginConfig})
 	if err != nil {
 		return err
 	}
@@ -79,7 +81,7 @@ func (p *Plugin) Handshake() *PluginError {
 	if !ok {
 		return ErrUnexpectedFSMToPlugin(reflect.TypeOf(response))
 	}
-	// set config
+	// set pluginConfig
 	p.fsmConfig = wrapper.Config
 	// handshake conmplete
 	return nil
@@ -127,7 +129,7 @@ func (p *Plugin) ListenForInbound() {
 		go func() {
 			if err := func() *PluginError {
 				// create a new instance of a contract
-				response, c := isPluginToFSM_Payload(nil), &Contract{FSMConfig: p.fsmConfig, plugin: p, fsmId: msg.Id}
+				response, c := isPluginToFSM_Payload(nil), &Contract{Config: p.config, FSMConfig: p.fsmConfig, plugin: p, fsmId: msg.Id}
 				// route the message
 				switch payload := msg.Payload.(type) {
 				// response to a request made by the Contract
@@ -367,6 +369,7 @@ func JoinLenPrefix(toAppend ...[]byte) []byte {
 // CONFIG IMPLEMENTATION BELOW
 
 type Config struct {
+	ChainId     uint64 `json:"chainId"`
 	DataDirPath string `json:"dataDirPath"`
 }
 
@@ -374,6 +377,7 @@ type Config struct {
 func DefaultConfig() Config {
 	// return the default configuration
 	return Config{
+		ChainId:     1,
 		DataDirPath: filepath.Join("/tmp/plugin/"),
 	}
 }
@@ -387,9 +391,9 @@ func NewConfigFromFile(filepath string) (Config, error) {
 		// exit with error
 		return Config{}, err
 	}
-	// define the default config to fill in any blanks in the file
+	// define the default pluginConfig to fill in any blanks in the file
 	c := DefaultConfig()
-	// populate the default config with the file bytes
+	// populate the default pluginConfig with the file bytes
 	if err = json.Unmarshal(fileBytes, &c); err != nil {
 		// exit with error
 		return Config{}, err

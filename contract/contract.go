@@ -17,7 +17,8 @@ var ContractConfig = &PluginConfig{
 // Contract() defines the smart contract that implements the extended logic of the nested chain
 type Contract struct {
 	FSMConfig *PluginFSMConfig // fsm configuration
-	plugin    Plugin           // plugin connection
+	plugin    *Plugin          // plugin connection
+	fsmId     uint64           // the id of the requesting fsm
 }
 
 // Genesis() implements logic to import a json file to create the state at height 0 and export the state at any height
@@ -158,7 +159,7 @@ func (c *Contract) DeliverMessageSend(msg *MessageSend) *PluginDeliverResponse {
 	if err != nil {
 		return &PluginDeliverResponse{Error: err}
 	}
-	toBytes, err = Marshal(from)
+	toBytes, err = Marshal(to)
 	if err != nil {
 		return &PluginDeliverResponse{Error: err}
 	}

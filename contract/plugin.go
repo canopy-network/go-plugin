@@ -7,7 +7,6 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 	"io"
 	"log"
-	"math/rand"
 	"net"
 	"os"
 	"path/filepath"
@@ -46,7 +45,7 @@ func StartPlugin(c Config) {
 			break
 		}
 		// log the connection error
-		log.Printf("Failed to connect to plugin socket %s: %v\n", sockPath, err)
+		log.Printf("Failed to connect to plugin socket%v\n", err)
 	}
 	// constructs the new plugin
 	p := &Plugin{
@@ -57,11 +56,7 @@ func StartPlugin(c Config) {
 		l:               sync.Mutex{},
 	}
 	// begin the listening service
-	go func() {
-		if err := p.ListenForInbound(); err != nil {
-			log.Fatal(err.Error())
-		}
-	}()
+	go p.ListenForInbound()
 	// execute the handshake
 	if err := p.Handshake(); err != nil {
 		log.Fatal(err.Error())
@@ -72,6 +67,9 @@ func StartPlugin(c Config) {
 
 // Handshake() sends the contract configuration to the FSM and awaits a reply
 func (p *Plugin) Handshake() *PluginError {
+	// log the handshake
+	log.Println("Handshaking with FSM")
+	// send to the plugin sync
 	response, err := p.sendToPluginSync(&Contract{}, &PluginToFSM_Config{Config: p.config})
 	if err != nil {
 		return err
@@ -119,42 +117,50 @@ func (p *Plugin) StateWrite(c *Contract, request *PluginStateWriteRequest) (*Plu
 }
 
 // ListenForInbound() routes inbound requests from the plugin
-func (p *Plugin) ListenForInbound() *PluginError {
+func (p *Plugin) ListenForInbound() {
 	for {
-		if err := func() *PluginError {
-			// block until a message is received
-			msg := new(FSMToPlugin)
-			if err := p.receiveProtoMsg(msg); err != nil {
-				return err
-			}
-			// create a new instance of a contract
-			response, c := isPluginToFSM_Payload(nil), &Contract{FSMConfig: p.fsmConfig}
-			// route the message
-			switch payload := msg.Payload.(type) {
-			// response to a request made by the Contract
-			case *FSMToPlugin_Config, *FSMToPlugin_StateRead, *FSMToPlugin_StateWrite:
-				return p.handleFSMResponse(msg)
-			// inbound requests from the FSM
-			case *FSMToPlugin_Genesis:
-				response = &PluginToFSM_Genesis{c.Genesis(msg.GetGenesis())}
-			case *FSMToPlugin_Begin:
-				response = &PluginToFSM_Begin{c.BeginBlock(msg.GetBegin())}
-			case *FSMToPlugin_Check:
-				response = &PluginToFSM_Check{c.CheckTx(msg.GetCheck())}
-			case *FSMToPlugin_Deliver:
-				response = &PluginToFSM_Deliver{c.DeliverTx(msg.GetDeliver())}
-			case *FSMToPlugin_End:
-				response = &PluginToFSM_End{c.EndBlock(msg.GetEnd())}
-			default:
-				return ErrInvalidFSMToPluginMMessage(reflect.TypeOf(payload))
-			}
-			return p.sendProtoMsg(&PluginToFSM{
-				Id:      msg.Id,
-				Payload: response,
-			})
-		}(); err != nil {
-			return err
+		// block until a message is received
+		msg := new(FSMToPlugin)
+		if err := p.receiveProtoMsg(msg); err != nil {
+			log.Fatal(err.Error())
 		}
+		go func() {
+			if err := func() *PluginError {
+				// create a new instance of a contract
+				response, c := isPluginToFSM_Payload(nil), &Contract{FSMConfig: p.fsmConfig, plugin: p, fsmId: msg.Id}
+				// route the message
+				switch payload := msg.Payload.(type) {
+				// response to a request made by the Contract
+				case *FSMToPlugin_Config, *FSMToPlugin_StateRead, *FSMToPlugin_StateWrite:
+					log.Println("Received FSM response")
+					return p.handleFSMResponse(msg)
+				// inbound requests from the FSM
+				case *FSMToPlugin_Genesis:
+					log.Println("Received genesis request from FSM")
+					response = &PluginToFSM_Genesis{c.Genesis(msg.GetGenesis())}
+				case *FSMToPlugin_Begin:
+					log.Println("Received begin request from FSM")
+					response = &PluginToFSM_Begin{c.BeginBlock(msg.GetBegin())}
+				case *FSMToPlugin_Check:
+					log.Println("Received check request from FSM")
+					response = &PluginToFSM_Check{c.CheckTx(msg.GetCheck())}
+				case *FSMToPlugin_Deliver:
+					log.Println("Received deliver request from FSM")
+					response = &PluginToFSM_Deliver{c.DeliverTx(msg.GetDeliver())}
+				case *FSMToPlugin_End:
+					log.Println("Received end request from FSM")
+					response = &PluginToFSM_End{c.EndBlock(msg.GetEnd())}
+				default:
+					return ErrInvalidFSMToPluginMMessage(reflect.TypeOf(payload))
+				}
+				return p.sendProtoMsg(&PluginToFSM{
+					Id:      msg.Id,
+					Payload: response,
+				})
+			}(); err != nil {
+				log.Fatal(err.Error())
+			}
+		}()
 	}
 }
 
@@ -196,7 +202,7 @@ func (p *Plugin) sendToPluginSync(c *Contract, request isPluginToFSM_Payload) (i
 // sendToPluginAsync() sends to the plugin but doesn't wait for a response, tracking FSM context
 func (p *Plugin) sendToPluginAsync(c *Contract, request isPluginToFSM_Payload) (ch chan isFSMToPlugin_Payload, requestId uint64, err *PluginError) {
 	// generate the request UUID
-	requestId = rand.Uint64()
+	requestId = c.fsmId
 	// make a channel to receive the response
 	ch = make(chan isFSMToPlugin_Payload, 1)
 	// add to the pending list and FSM context map
@@ -217,7 +223,7 @@ func (p *Plugin) waitForResponse(ch chan isFSMToPlugin_Payload, requestId uint64
 	case response := <-ch:
 		return response, nil
 	// timeout
-	case <-time.After(time.Second):
+	case <-time.After(10 * time.Second):
 		// safely remove the request and FSM context
 		p.l.Lock()
 		delete(p.pending, requestId)
@@ -373,7 +379,7 @@ func DefaultConfig() Config {
 	}
 	// return the default configuration
 	return Config{
-		DataDirPath: filepath.Join(home + ".canopy"),
+		DataDirPath: filepath.Join(home, ".canopy"),
 	}
 }
 

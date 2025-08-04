@@ -1,5 +1,5 @@
 syntax = "proto3";
-package proto;
+package types;
 option go_package = "github.com/canopy-network/go-plugin/contract";
 
 import "google/protobuf/any.proto";
@@ -10,20 +10,10 @@ message Transaction {
   string message_type = 1; // @gotags: json:"messageType"
   // msg: The actual transaction message payload, which is encapsulated in a generic message format
   google.protobuf.Any msg = 2;
-  // signature: The cryptographic signature used to verify the authenticity of the transaction
-  Signature signature = 3;
-  // created_height: The height when the transaction was created - allows 'safe pruning'
-  uint64 created_height = 4; // @gotags: json:"createdHeight"
-  // time: The timestamp when the transaction was created - used as temporal entropy to prevent hash collisions in txs
-  uint64 time = 5;
   // fee: The fee associated with processing the transaction
   uint64 fee = 6;
-  // memo: An optional message or note attached to the transaction
-  string memo = 7;
-  // network_id: The identity of the network the transaction is intended for
-  uint64 network_id = 8; // @gotags: json:"networkID"
-  // chain_id: The identity of the committee the transaction is intended for
-  uint64 chain_id = 9; // @gotags: json:"chainID"
+  // NOTE: CAN EXTEND FUNCTIONALITY BY ADDING ADDITIONAL FIELDS
+  // NO CONFLICT STARTING AT FIELD = 10
 }
 
 // MessageSend is a standard transfer transaction, taking tokens from the sender and transferring
@@ -41,30 +31,7 @@ message MessageSend {
 message FeeParams {
   // send_fee: is the fee amount (in uCNPY) for Message Send
   uint64 send_fee = 1; // @gotags: json:"sendFee"
-  // stake_fee: is the fee amount (in uCNPY) for Message Stake
-  uint64 stake_fee = 2; // @gotags: json:"stakeFee"
-  // edit_stake_fee: is the fee amount (in uCNPY) for Message Edit-Stake
-  uint64 edit_stake_fee = 3; // @gotags: json:"editStakeFee"
-  // unstake_stake_fee: is the fee amount (in uCNPY) for Message Unstake
-  uint64 unstake_fee = 4; // @gotags: json:"unstakeFee"
-  // pause_fee: is the fee amount (in uCNPY) for Message Pause
-  uint64 pause_fee = 5; // @gotags: json:"pauseFee"
-  // unpause_fee: is the fee amount (in uCNPY) for Message Unpause
-  uint64 unpause_fee = 6; // @gotags: json:"unpauseFee"
-  // change_parameter_fee: is the fee amount (in uCNPY) for Message Change Parameter
-  uint64 change_parameter_fee = 7; // @gotags: json:"changeParameterFee"
-  // dao_transfer: is the fee amount (in uCNPY) for Message DAO transfer
-  uint64 dao_transfer_fee = 8; // @gotags: json:"daoTransferFee"
-  // certificate_results_fee: is the fee amount (in uCNPY) for Message Certificate Results
-  uint64 certificate_results_fee = 9; // @gotags: json:"certificateResultsFee"
-  // subsidy_fee: is the fee amount (in uCNPY) for Message Subsidy
-  uint64 subsidy_fee = 10; // @gotags: json:"subsidyFee"
-  // create_order_fee: is the fee amount (in uCNPY) for Message Create Order
-  uint64 create_order_fee = 11; // @gotags: json:"createOrderFee"
-  // edit_order_fee: is the fee amount (in uCNPY) for Message Edit Order
-  uint64 edit_order_fee = 12; // @gotags: json:"editOrderFee"
-  // delete_order_fee: is the fee amount (in uCNPY) for Message Delete Order
-  uint64 delete_order_fee = 13; // @gotags: json:"deleteOrderFee"
+  // NO CONFLICT STARTING AT FIELD = 14
 }
 
 // A Signature is a digital signature is a cryptographic "fingerprint" created with a private key,

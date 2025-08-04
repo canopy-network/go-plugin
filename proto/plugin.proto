@@ -1,5 +1,5 @@
 syntax = "proto3";
-package proto;
+package types;
 option go_package = "github.com/canopy-network/go-plugin/contract";
 import "tx.proto";
 
@@ -104,7 +104,7 @@ message PluginDeliverRequest {Transaction tx = 1;}
 message PluginDeliverResponse {PluginError error = 99;}
 
 // PluginEndRequest signals end of the current block
-message PluginEndRequest {}
+message PluginEndRequest { bytes proposer_address = 1; }
 
 // PluginEndResponse acknowledges end block execution
 message PluginEndResponse {PluginError error = 99;}

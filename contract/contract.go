@@ -176,7 +176,7 @@ func (c *Contract) DeliverMessageSend(msg *MessageSend, fee uint64) *PluginDeliv
 	if err != nil {
 		return &PluginDeliverResponse{Error: err}
 	}
-	feePoolBytes, err = Marshal(feePoolBytes)
+	feePoolBytes, err = Marshal(feePool)
 	if err != nil {
 		return &PluginDeliverResponse{Error: err}
 	}

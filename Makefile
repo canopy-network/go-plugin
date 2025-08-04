@@ -1,2 +1,2 @@
 build:
-	cd proto && bash _generate.sh && cd .. && go build -o ~/go/bin/go-plugin .
+	go build -o ~/go/bin/go-plugin .

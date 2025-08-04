@@ -372,14 +372,9 @@ type Config struct {
 
 // DefaultConfig() returns the default configuration
 func DefaultConfig() Config {
-	// get $USERHOME
-	home, err := os.UserHomeDir()
-	if err != nil {
-		panic(err)
-	}
 	// return the default configuration
 	return Config{
-		DataDirPath: filepath.Join(home, ".canopy"),
+		DataDirPath: filepath.Join("/tmp/plugin/"),
 	}
 }
 

@@ -118,7 +118,7 @@ func (c *Contract) DeliverMessageSend(msg *MessageSend, fee uint64) *PluginDeliv
 		from, to, feePool                  = new(Account), new(Account), new(Pool)
 	)
 	// calculate the from key and to key
-	fromKey, toKey, feePoolKey = KeyForAccount(msg.FromAddress), KeyForAccount(msg.ToAddress), KeyForFeePool(c.Config.ChainId
+	fromKey, toKey, feePoolKey = KeyForAccount(msg.FromAddress), KeyForAccount(msg.ToAddress), KeyForFeePool(c.Config.ChainId)
 	// get the from and to account
 	response, err := c.plugin.StateRead(c, &PluginStateReadRequest{
 		Keys: []*PluginKeyRead{

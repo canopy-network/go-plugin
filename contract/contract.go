@@ -98,7 +98,7 @@ func (c *Contract) CheckMessageSend(msg *MessageSend) *PluginCheckResponse {
 		return &PluginCheckResponse{Error: ErrInvalidAddress()}
 	}
 	// check recipient address
-	if len(msg.FromAddress) != 20 {
+	if len(msg.ToAddress) != 20 {
 		return &PluginCheckResponse{Error: ErrInvalidAddress()}
 	}
 	// check amount
@@ -106,7 +106,7 @@ func (c *Contract) CheckMessageSend(msg *MessageSend) *PluginCheckResponse {
 		return &PluginCheckResponse{Error: ErrInvalidAmount()}
 	}
 	// return the authorized signers
-	return &PluginCheckResponse{AuthorizedSigners: [][]byte{msg.FromAddress}}
+	return &PluginCheckResponse{Recipient: msg.ToAddress, AuthorizedSigners: [][]byte{msg.FromAddress}}
 }
 
 // DeliverMessageSend() handles a 'send' message
@@ -194,9 +194,9 @@ func (c *Contract) DeliverMessageSend(msg *MessageSend, fee uint64) *PluginDeliv
 	} else {
 		resp, err = c.plugin.StateWrite(c, &PluginStateWriteRequest{
 			Sets: []*PluginSetOp{
+				{Key: feePoolKey, Value: feePoolBytes},
 				{Key: toKey, Value: toBytes},
 				{Key: fromKey, Value: fromBytes},
-				{Key: feePoolKey, Value: feePoolBytes},
 			},
 		})
 	}

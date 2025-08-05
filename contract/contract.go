@@ -1,6 +1,7 @@
 package contract
 
 import (
+	"bytes"
 	"encoding/binary"
 	"math/rand"
 )
@@ -160,6 +161,10 @@ func (c *Contract) DeliverMessageSend(msg *MessageSend, fee uint64) *PluginDeliv
 	// if the account amount is less than the amount to subtract; return insufficient funds
 	if from.Amount < amountToDeduct {
 		return &PluginDeliverResponse{Error: ErrInsufficientFunds()}
+	}
+	// for self-transfer, use same account data
+	if bytes.Equal(fromKey, toKey) {
+		to = from
 	}
 	// subtract from sender
 	from.Amount -= amountToDeduct
